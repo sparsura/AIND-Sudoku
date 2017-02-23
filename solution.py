@@ -1,3 +1,6 @@
+import logging
+from initvars import *
+
 assignments = []
 
 def assign_value(values, box, value):
@@ -5,81 +8,114 @@ def assign_value(values, box, value):
     Please use this function to update your values dictionary!
     Assigns a value to a given box. If it updates the board record it.
     """
+
     values[box] = value
     if len(value) == 1:
         assignments.append(values.copy())
     return values
 
-def naked_twins(values):
-    """Eliminate values using the naked twins strategy.
-    Args:
-        values(dict): a dictionary of the form {'box_name': '123456789', ...}
-
-    Returns:
-        the values dictionary with the naked twins eliminated from peers.
+def init_naked_twins():
+    """Initialize all naked_twins diectionaries.
     """
 
-    # Find all instances of naked twins
+    global naked_twins_row
+    global naked_twins_column
+    global naked_twins_square
+    global naked_twins_diag
 
-
-    # Create row/column/square/diag dictionaries to store naked twins for each box
+    # Initialize row/column/square/diag dictionaries
     naked_twins_row = dict()
     naked_twins_column = dict()
     naked_twins_square = dict()
     naked_twins_diag = dict()
 
+def find_naked_twins(values):
+    """Find all instances of naked twins.
+    Args:
+        values(dict): a dictionary of the form {'box_name': '123456789', ...}
+    """
+
     # For boxes with exactly 2 digits, look for (and store) naked twins among row/column/square/diag peers
     for box in boxes:
         if len(values[box]) == 2:
+            # Scan row peers for a possible naked twin
             for rp in rpeers[box]:
                 if values[box] == values[rp]:
                     naked_twins_row[box] = rp
                     break
+            # Scan column peers for a possible naked twin
             for cp in cpeers[box]:
                 if values[box] == values[cp]:
                     naked_twins_column[box] = cp
                     break
+            # Scan square peers for a possible naked twin
             for sp in speers[box]:
                 if values[box] == values[sp]:
                     naked_twins_square[box] = sp
                     break
+            # Scan diagonal peers for a possible naked twin
             for dp in dpeers[box]:
                 if values[box] == values[dp]:
                     naked_twins_diag[box] = dp
                     break
 
-
-    # Eliminate the naked twins as possibilities for their peers
-
+def eliminate_naked_twins_in_peers(values):
+    """Eliminate all instances of naked twins in peers.
+    Args:
+        values(dict): a dictionary of the form {'box_name': '123456789', ...}
+    """
 
     # For each box that has a naked twin, remove the 2 digits in all row/column/square/diag peers (excluding the naked twin)
     for box in boxes:
         if box in naked_twins_row:
+            # Check each peer for the 2 digits contained in the box
             for digit in values[box]:
                 for rp in rpeers[box]:
+                    # Remove the digit from the peer unless its the naked twin of the box
                     if rp != naked_twins_row[box]:
                         values[rp] = values[rp].replace(digit,'')
         if box in naked_twins_column:
+            # Check each peer for the 2 digits contained in the box
             for digit in values[box]:
                 for cp in cpeers[box]:
+                    # Remove the digit from the peer unless its the naked twin of the box
                     if cp != naked_twins_column[box]:
                         values[cp] = values[cp].replace(digit,'')
         if box in naked_twins_square:
+            # Check each peer for the 2 digits contained in the box
             for digit in values[box]:
                 for sp in speers[box]:
+                    # Remove the digit from the peer unless its the naked twin of the box
                     if sp != naked_twins_square[box]:
                         values[sp] = values[sp].replace(digit,'')
         if box in naked_twins_diag:
+            # Check each peer for the 2 digits contained in the box
             for digit in values[box]:
                 for dp in dpeers[box]:
+                    # Remove the digit from the peer unless its the naked twin of the box
                     if dp != naked_twins_diag[box]:
                         values[dp] = values[dp].replace(digit,'')
 
+
+def naked_twins(values):
+    """Eliminate values using the naked twins strategy.
+    Args:
+        values(dict): a dictionary of the form {'box_name': '123456789', ...}
+    Returns:
+        the values dictionary with the naked twins eliminated from peers.
+    """
+
+    # Initialize all naked_twins dictionaries
+    init_naked_twins()
+
+    # Find all instances of naked twins
+    find_naked_twins(values)
+
+    # Eliminate the naked twins as possibilities for their peers
+    eliminate_naked_twins_in_peers(values)
+
     return values
 
-def cross(A, B):
-    "Cross product of elements in A and elements in B."
-    return [s+t for s in A for t in B]
 
 def grid_values(grid):
     """
@@ -91,6 +127,7 @@ def grid_values(grid):
             Keys: The boxes, e.g., 'A1'
             Values: The value in each box, e.g., '8'. If the box has no value, then the value will be '123456789'.
     """
+
     chars = []
     digits = '123456789'
     for c in grid:
@@ -107,6 +144,7 @@ def display(values):
     Args:
         values(dict): The sudoku in dictionary form
     """
+
     width = 1+max(len(values[s]) for s in boxes)
     line = '+'.join(['-'*(width*3)]*3)
     for r in rows:
@@ -116,6 +154,12 @@ def display(values):
     print
 
 def eliminate(values):
+    """
+    Go through all the boxes, and whenever there is a box with a value, eliminate this value from the values of all its peers.
+    Input: A sudoku in dictionary form.
+    Output: The resulting sudoku in dictionary form.
+    """
+
     solved_values = [box for box in values.keys() if len(values[box]) == 1]
     for box in solved_values:
         digit = values[box]
@@ -124,6 +168,12 @@ def eliminate(values):
     return values
 
 def only_choice(values):
+    """
+    Go through all the units, and whenever there is a unit with a value that only fits in one box, assign the value to this box.
+    Input: A sudoku in dictionary form.
+    Output: The resulting sudoku in dictionary form.
+    """
+
     for unit in unitlist:
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
@@ -132,6 +182,14 @@ def only_choice(values):
     return values
 
 def reduce_puzzle(values):
+    """
+    Iterate eliminate() and only_choice(). If at some point, there is a box with no available values, return False.
+    If the sudoku is solved, return the sudoku.
+    If after an iteration of both functions, the sudoku remains the same, return the sudoku.
+    Input: A sudoku in dictionary form.
+    Output: The resulting sudoku in dictionary form.
+    """
+
     solved_values = [box for box in values.keys() if len(values[box]) == 1]
     stalled = False
     while not stalled:
@@ -149,7 +207,9 @@ def reduce_puzzle(values):
     return values
 
 def search(values):
-    "Using depth-first search and propagation, try all possible values."
+    """Using depth-first search and propagation, try all possible values.
+    """
+
     # First, reduce the puzzle using the previous function
     values = reduce_puzzle(values)
     if values is False:
@@ -189,31 +249,21 @@ def solve(grid):
         values = assign_value(values,k,v)
     return values
 
-# Define some of the global variables that are used in the methods
-
-rows = 'ABCDEFGHI'
-cols = '123456789'
-boxes = cross(rows, cols)
-
-row_units = [cross(r, cols) for r in rows]
-column_units = [cross(rows, c) for c in cols]
-square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-diag_units = [[rows[i]+cols[i] for i in range(len(rows))], [rows[-i-1]+cols[i] for i in range(len(rows))]]
-unitlist = row_units + column_units + square_units + diag_units
-
-runits = dict((s, [u for u in row_units if s in u]) for s in boxes)
-rpeers = dict((s, set(sum(runits[s],[]))-set([s])) for s in boxes)
-cunits = dict((s, [u for u in column_units if s in u]) for s in boxes)
-cpeers = dict((s, set(sum(cunits[s],[]))-set([s])) for s in boxes)
-sunits = dict((s, [u for u in square_units if s in u]) for s in boxes)
-speers = dict((s, set(sum(sunits[s],[]))-set([s])) for s in boxes)
-dunits = dict((s, [u for u in diag_units if s in u]) for s in boxes)
-dpeers = dict((s, set(sum(dunits[s],[]))-set([s])) for s in boxes)
-units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
-peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
 
 if __name__ == '__main__':
+
+    # Set logging level to ERROR
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.ERROR)
+
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
+
+    # Log error if the length of the sudoku grid is not 81
+    len_dsg = len(diag_sudoku_grid)
+    if len_dsg != 81:
+        logger.error('ERROR: %s length is %d.  It should be 81.' % ("diag_sudoku_grid", len_dsg))
+        exit()
+
     display(solve(diag_sudoku_grid))
 
     try:
